@@ -601,7 +601,7 @@ static int starter_whack_basic_add_conn(struct starter_config *cfg
 	    }
 	}
 	if(conn->addresspool) {
-		if(ttrange(conn->addresspool, strlen(conn->addresspool), AF_INET, &msg.pool_range)) {
+		if(ttorange(conn->addresspool, strlen(conn->addresspool), AF_INET, &msg.pool_range)) {
 			starter_log(LOG_LEVEL_ERR,"addresspool entry is not a valid IPv4 range %s", conn->addresspool);
 		}
 	}

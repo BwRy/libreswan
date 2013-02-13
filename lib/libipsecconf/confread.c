@@ -341,6 +341,7 @@ static int load_setup (struct starter_config *cfg
 	    case kt_rsakey:
 	    case kt_ipaddr:
 	    case kt_subnet:
+		case kt_range:
 	    case kt_idtype:
 		err++;
 		break;
@@ -711,6 +712,7 @@ bool translate_conn (struct starter_conn *conn
 	case kt_dirname:
 	case kt_bitstring:
 	case kt_ipaddr:
+	case kt_range:
 	case kt_subnet:
 	case kt_idtype:
 	    /* all treated as strings for now */
