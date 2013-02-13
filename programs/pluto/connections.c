@@ -3435,7 +3435,6 @@ show_one_sr(struct connection *c
                   , dns2
                 );
 # endif
-
     }
 #endif
 #ifdef HAVE_LABELED_IPSEC

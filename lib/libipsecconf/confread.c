@@ -1101,7 +1101,11 @@ static int load_conn (struct ub_ctx *dnsctx
 
     KW_POLICY_FLAG(KBF_AGGRMODE, POLICY_AGGRESSIVE);
 
+#ifdef XAUTH
+# ifdef MODECFG
     KW_POLICY_FLAG(KBF_MODECONFIGPULL, POLICY_MODECFG_PULL);
+# endif
+#endif
 
     KW_POLICY_FLAG(KBF_OVERLAPIP, POLICY_OVERLAPIP);
 
@@ -1123,6 +1127,7 @@ static int load_conn (struct ub_ctx *dnsctx
     }
 
 #ifdef XAUTH
+# ifdef MODECFG
     if(conn->strings_set[KSF_MODECFGDNS1]) {
     starter_log(LOG_LEVEL_DEBUG,"connection's  conn->modecfg_dns1 set to: %s",conn->strings[KSF_MODECFGDNS1] );
        conn->modecfg_dns1 = xstrdup(conn->strings[KSF_MODECFGDNS1]);
@@ -1135,6 +1140,7 @@ static int load_conn (struct ub_ctx *dnsctx
     starter_log(LOG_LEVEL_DEBUG,"connection's  addresspool set to: %s",conn->strings[KSF_ADDRESSPOOL] );
     conn->addresspool = xstrdup(conn->strings[KSF_ADDRESSPOOL]);
     }
+# endif
 #endif
 
     if(conn->strings_set[KSF_CONNALIAS]) {
