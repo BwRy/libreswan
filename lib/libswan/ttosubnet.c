@@ -21,6 +21,93 @@
 #endif
 
 /*
+ - ttoiprange - convert text "addr1-addr2" to address start address_end 
+ */
+err_t
+ttoiprange(src, srclen, af, dst)
+const char *src;
+size_t srclen;			/* 0 means "apply strlen" */
+int af;				/* AF_INET.  AF_INET6 not supported. */
+ip_range *dst;
+{
+	const char *dash;
+	const char *high;
+	size_t hlen;
+	const char *oops;
+
+	static char def[] = DEFAULTSUBNET;
+#	define	DEFLEN	(sizeof(def) - 1)	/* -1 for NUL */
+	static char defis4[] = "1.2.3.4-5.6.7.8";
+#	define	DEFIS4LEN	(sizeof(defis4) - 1)
+	ip_address addr_start_tmp;
+	ip_address addr_end_tmp;
+	int i;
+
+	if(src == NULL)
+			return "src is empty";
+	if (srclen == 0)
+		srclen = strlen(src);
+
+	if (srclen == 0)
+		return "empty string";
+	/* you cannot use af==0 and src=0/0, makes no sense as will it be AF_INET */
+	if (af != AF_INET)
+		return "support only AF_INET v4.";
+
+	if (srclen < DEFLEN ) {
+		return "range is too short min DEFIS4LEN";
+	}
+
+	dash = memchr(src, '-', srclen);
+	if (dash == NULL)
+		return "no - in ip address range specification";
+	
+	high = dash + 1;
+	hlen = srclen - (dash - src) - 1;
+	oops = ttoaddr(src, dash - src, af, &addr_start_tmp);
+	if (oops != NULL)
+		return oops;
+
+	if (af == 0)
+		af = ip_address_family(&addr_start_tmp);
+
+	switch (af) {
+	case AF_INET:
+		break;
+	case AF_INET6:
+		return "address family (AF_INET6) is not supported in ttoiprange start";
+	default:
+		return "unknown address family in ttoiprange start";
+		break;
+	}
+
+	/*extract end ip address*/
+	oops = ttoaddr(high, hlen, af, &addr_end_tmp);
+	if (oops != NULL)
+		return oops;
+	if (af == 0)
+		af = ip_address_family(&addr_end_tmp);
+
+	switch (af) {
+		case AF_INET:
+			break;
+		case AF_INET6:
+			return "address family (AF_INET6) is not supported in ttiporange end";
+		default:
+			return "unknown address family in ttosubnet end";
+			break;
+	}
+	u_int32_t range_size;
+	range_size = (u_int32_t)ntohl(addr_end_tmp.u.v4.sin_addr.s_addr) 
+		- (u_int32_t)ntohl(addr_start_tmp.u.v4.sin_addr.s_addr);
+	if(range_size < 0)
+		return "range size is -ve. start is grater than the end";
+
+	/* we validated the range. no put them in dst */
+	oops = ttoaddr(src, dash - src, af, &dst->start);
+	oops = ttoaddr(high, hlen, af, &dst->end);
+}
+/*
  - ttosubnet - convert text "addr/mask" to address and mask
  * Mask can be integer bit count.
  */

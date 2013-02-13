@@ -600,7 +600,11 @@ static int starter_whack_basic_add_conn(struct starter_config *cfg
 			starter_log(LOG_LEVEL_ERR,"Ignoring modecfg_dns2 entry, it is not a valid IPv4 or IPv6 address");
 	    }
 	}
-
+	if(conn->addresspool) {
+		if(ttoiprange(conn->addresspool, strlen(conn->addresspool), AF_INET, &msg.pool_range)) {
+			starter_log(LOG_LEVEL_ERR,"addresspool entry is not a valid IPv4 range %s", conn->addresspool);
+		}
+	}
 	msg.tpmeval = NULL;
 
 	r =  send_whack_msg(&msg, cfg->ctlbase);

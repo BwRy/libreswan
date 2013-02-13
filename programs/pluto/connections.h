@@ -274,6 +274,8 @@ struct connection {
 # ifdef MODECFG
     ip_address modecfg_dns1;
     ip_address modecfg_dns2;
+    ip_range pool_range; /* store start of v4 addresspool as range, start end */
+    int *pool;  /* dyanamically allocated array # ip addresses */
 # endif
     char *cisco_dns_info;
     char *cisco_domain_info;

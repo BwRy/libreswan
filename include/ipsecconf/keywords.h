@@ -51,6 +51,7 @@ enum keyword_string_config_field {
     KSF_POLICY_LABEL,
     KSF_MODECFGDNS1,
     KSF_MODECFGDNS2,
+    KSF_ADDRESSPOOL,
     KSF_MAX
 };
 

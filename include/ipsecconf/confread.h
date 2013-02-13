@@ -107,6 +107,7 @@ struct starter_conn {
 	char *modecfg_dns1;
 	char *modecfg_dns2;
 	char *policy_label;
+	char *addresspool;
 };
 
 struct starter_config {

@@ -232,6 +232,106 @@ void sigIntHandler(int sig)
     }
 }
 
+int rel_addr_pool (struct connection *c) 
+{
+	u_int32_t a;
+	u_int32_t i;
+	u_int32_t p_start;
+	u_int32_t p_end;
+	char abuf1[ADDRTOT_BUF];
+	char abuf2[ADDRTOT_BUF];
+	char abuf3[ADDRTOT_BUF];
+
+	/* 
+	   st->st_connection->spd.that.client.addr = ia.ipaddr;
+	   st->st_connection->spd.that.client.maskbits = 32;
+	   st->st_connection->spd.that.has_client = TRUE;
+	   */
+	if(c->spd.that.has_client == FALSE)
+	{
+		DBG(DBG_CONTROL
+				,DBG_log("called to relase a pool address. c->spd.that.has_client == FALSE"
+					"so not releasing it"));
+		return TRUE;
+	}
+
+#warning "antony do not forget to check AF otherwise pluto may crash on AF_INET6" 
+
+	addrtot(&c->spd.that.client.addr,0, abuf3, sizeof(abuf3)); 
+	addrtot(&c->pool_range.start,0, abuf1, sizeof(abuf1));
+	addrtot(&c->pool_range.end,0, abuf2, sizeof(abuf2));
+
+
+	a = (u_int32_t)ntohl(c->spd.that.client.addr.u.v4.sin_addr.s_addr);
+	p_start = (u_int32_t)ntohl(c->pool_range.start.u.v4.sin_addr.s_addr);	
+	p_end = (u_int32_t)ntohl(c->pool_range.end.u.v4.sin_addr.s_addr);	
+
+	if(!((a >= p_start) && (a <= p_end))){
+		// that.client.addr is not within our pool 
+		DBG(DBG_CONTROL ,DBG_log("can not free a pool adress"
+					"that.client.addr %s in this conn addresspool %s-%s",
+					abuf3, abuf1, abuf2));
+		return TRUE;
+	}
+	// that.client.addr could one of ours
+	i = a - p_start;
+	if( c->pool[i] = POOL_ADDRESS_USED) {
+		c->pool[i] = POOL_ADDRESS_FREE;
+		DBG(DBG_CONTROL ,DBG_log("freed a pool adress"
+					"that.client.addr %s conn addresspool %s-%s",
+					abuf3, abuf1, abuf2));
+
+	} 
+	else {
+		// this should not happen. So worth logging.
+		DBG(DBG_CONTROL ,DBG_log("trying free unused address"
+					"that.client.addr %s conn addresspool %s-%s",
+					abuf3, abuf1, abuf2));
+
+	}
+	 return TRUE;
+}
+static int get_addr_pool(struct connection *c,struct internal_addr *ia)
+{
+    uint32_t i;
+    uint32_t pool_size;
+    uint32_t free_addr_nw;
+    uint32_t free_addr;
+    char abuf1[ADDRTOT_BUF];
+    char abuf2[ADDRTOT_BUF];
+    char abuf3[ADDRTOT_BUF];
+
+    pool_size = (u_int32_t)ntohl(c->pool_range.end.u.v4.sin_addr.s_addr)
+        - (u_int32_t)ntohl(c->pool_range.start.u.v4.sin_addr.s_addr);
+    pool_size++; 
+
+    DBG(DBG_CONTROLMORE
+            ,DBG_log("get an address from the pool is %s-%s size %u pool pointer %p",
+                (addrtot(&c->pool_range.start,0, abuf1
+                         , sizeof(abuf1)), abuf1)
+                ,(addrtot(&c->pool_range.end,0, abuf2
+                        , sizeof(abuf2)),abuf2 )
+                , pool_size, c->pool));
+
+    for(i=0; i < pool_size; i++) {
+        if(c->pool[i] == POOL_ADDRESS_FREE) {
+            c->pool[i] = POOL_ADDRESS_USED;
+
+            free_addr = (u_int32_t)ntohl(c->pool_range.start.u.v4.sin_addr.s_addr);
+            free_addr += i;
+            free_addr_nw = htonl(free_addr);
+            err_t e = initaddr((unsigned char *)&free_addr_nw
+                    ,sizeof(free_addr_nw) , AF_INET, &ia->ipaddr);
+            DBG(DBG_CONTROLMORE, DBG_log("give address %s from the pool %s-%s",
+                        (addrtot(&ia->ipaddr,0, abuf3, sizeof(abuf3))
+                         , abuf3), abuf1, abuf2));
+
+            return e;
+        }
+    }
+    libreswan_log("no free address to give from pool. All %u addresses are in use", pool_size);
+}
+
 #ifdef XAUTH_HAVE_PAM
 static
 int get_addr(pam_handle_t *pamh,const char *var,ip_address *addr)
@@ -302,12 +402,21 @@ int get_internal_addresses(struct connection *con,struct internal_addr *ia)
     int retval;
     char str[IDTOA_BUF+sizeof("ID=")+2];
 #endif
+    char buftest[ADDRTOT_BUF];
 
 #ifdef NAT_TRAVERSAL /* only NAT-T code lets us do virtual ends */
     if (!isanyaddr(&con->spd.that.client.addr))
     {
 	/** assumes IPv4, and also that the mask is ignored */
-	ia->ipaddr = con->spd.that.client.addr;
+	if(con->pool)
+	{
+		get_addr_pool(con, ia);
+		//ia->ipaddr = con->pool_range.start;
+	}
+	else 
+	{
+		ia->ipaddr = con->spd.that.client.addr;
+	}
 	if (!isanyaddr(&con->modecfg_dns1)) {
 		ia->dns[0] = con->modecfg_dns1;
 	}

@@ -13,6 +13,8 @@
  * for more details.
  */
 
+#define POOL_ADDRESS_FREE 0
+#define POOL_ADDRESS_USED 1
 struct state;
 
 stf_status modecfg_resp(struct state *st,unsigned int resp
@@ -54,4 +56,4 @@ extern stf_status xauth_inI0(struct msg_digest *md);
 extern stf_status xauth_inI1(struct msg_digest *md);
 extern oakley_auth_t xauth_calcbaseauth(oakley_auth_t baseauth);
 extern stf_status modecfg_send_request(struct state *st);
-
+int rel_addr_pool (struct connection *c);

@@ -1130,6 +1130,10 @@ static int load_conn (struct ub_ctx *dnsctx
     if(conn->strings_set[KSF_MODECFGDNS2]) {
     starter_log(LOG_LEVEL_DEBUG,"connection's  conn->modecfg_dns2 set to: %s",conn->strings[KSF_MODECFGDNS2] );
        conn->modecfg_dns2 = xstrdup(conn->strings[KSF_MODECFGDNS2]);
+    } 
+    if(conn->strings_set[KSF_ADDRESSPOOL]) {
+    starter_log(LOG_LEVEL_DEBUG,"connection's  addresspool set to: %s",conn->strings[KSF_ADDRESSPOOL] );
+    conn->addresspool = xstrdup(conn->strings[KSF_ADDRESSPOOL]);
     }
 #endif
 
@@ -1268,6 +1272,7 @@ void conn_default (char *n, struct starter_conn *conn,
 #ifdef XAUTH
     CONN_STR(conn->modecfg_dns1);
     CONN_STR(conn->modecfg_dns2);
+    CONN_STR(conn->addresspool);
 #endif
 #ifdef HAVE_LABELED_IPSEC
     CONN_STR(conn->policy_label);
@@ -1475,6 +1480,7 @@ static void confread_free_conn(struct starter_conn *conn)
 #ifdef XAUTH
 	FREE_STR(conn->modecfg_dns1);
 	FREE_STR(conn->modecfg_dns2);
+	FREE_STR(conn->addresspool);
 #endif
 	FREE_STR(conn->left.virt);
 	FREE_STR(conn->right.virt);

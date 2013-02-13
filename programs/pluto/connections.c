@@ -270,6 +270,7 @@ delete_connection(struct connection *c, bool relations)
 	     , ip_str(&c->spd.that.host_addr)
 	     , c->newest_isakmp_sa, c->newest_ipsec_sa);
 	c->kind = CK_GOING_AWAY;
+	rel_addr_pool(c);
     }
     else
     {
@@ -321,6 +322,14 @@ delete_connection(struct connection *c, bool relations)
     pfreeany(c->cisco_dns_info);
     pfreeany(c->cisco_domain_info);
     pfreeany(c->cisco_banner);
+
+#ifdef PAUL_DISABLED
+    if(c->pool) {
+            pfreeany(c->pool);
+            c->pool = NULL;
+    }
+#endif 
+
 #endif
 #ifdef HAVE_LABELED_IPSEC
     pfreeany(c->policy_label);
@@ -1145,6 +1154,8 @@ add_connection(const struct whack_message *wm)
 {
     struct alg_info_ike *alg_info_ike;
     const char *ugh;
+    char abuf2[ADDRTOT_BUF];
+    char abuf1[ADDRTOT_BUF];
 
     alg_info_ike = NULL;
 
@@ -1384,6 +1395,26 @@ add_connection(const struct whack_message *wm)
 	c->modecfg_dns1 = wm->modecfg_dns1;
 	c->modecfg_dns2 = wm->modecfg_dns2;
 #endif
+	c->pool_range =  wm->pool_range;
+    if(c->pool_range.start.u.v4.sin_addr.s_addr) {
+        u_int32_t pool_size;
+        pool_size = (u_int32_t)ntohl(
+                c->pool_range.end.u.v4.sin_addr.s_addr)
+            - (u_int32_t)ntohl(
+                    c->pool_range.start.u.v4.sin_addr.s_addr);
+        pool_size++;
+        c->pool = alloc_bytes((pool_size * sizeof(int)), "addresspool v4");
+        DBG(DBG_CONTROLMORE
+                ,DBG_log("addresspool initialized is %s-%s size %d pool pointer %p",
+                    (addrtot(&c->pool_range.start,0, abuf1
+                             , sizeof(abuf1)), abuf1)
+                    ,(addrtot(&c->pool_range.end,0, abuf2
+                            , sizeof(abuf2)),abuf2 )
+                    , pool_size, c->pool));
+    }
+    else {
+            c->pool = NULL;
+    }
 #endif
 
 	default_end(&c->spd.this, &c->spd.that.host_addr);
@@ -3373,16 +3404,38 @@ show_one_sr(struct connection *c
 		addrtot(&c->modecfg_dns2, 0, dns2, sizeof(dns2));
 	}
 
-	whack_log(RC_COMMENT, "\"%s\"%s:   xauth info: %s %s%s; dns1:%s, dns2:%s;"
-		  , c->name, instance
-		  /* should really be an enum name */
-		  , (sr->this.xauth_server) ?  (c->xauthby == XAUTHBY_FILE) ? "method:file;" :
-		    ((c->xauthby == XAUTHBY_PAM) ? "method:pam;" : "method:alwaysok;" ) : ""
-		  , thisxauthsemi
-		  , thatxauthsemi
-		  , dns1
-		  , dns2
-		);
+        whack_log(RC_COMMENT, "\"%s\"%s:   xauth info: us:%s, them:%s, %s %s%s;"
+                  , c->name, instance
+                  /* both should not be set, but if they are, we want to know */
+                  , (!sr->this.xauth_server && !sr->this.xauth_client) ? "none" :
+                    (sr->this.xauth_server && sr->this.xauth_client) ? "both??" :
+                    (sr->this.xauth_server) ? "server" : "client"
+                  , (!sr->that.xauth_server && !sr->that.xauth_client) ? "none" :
+                    (sr->that.xauth_server && sr->that.xauth_client) ? "both??" :
+                    (sr->that.xauth_server) ? "server" : "client"
+                  /* should really be an enum name */
+                  , (sr->this.xauth_server) ?  (c->xauthby == XAUTHBY_FILE) ? "method:file;" :
+                    ((c->xauthby == XAUTHBY_PAM) ? "method:pam;" : "method:alwaysok;" ) : ""
+                  , thisxauthsemi
+                  , thatxauthsemi
+                );
+
+# ifdef MODECFG
+        whack_log(RC_COMMENT, "\"%s\"%s:   modecfg info: us:%s, them:%s, modecfg policy:%s, dns1:%s, dns2:%s;"
+                  , c->name, instance
+                  /* both should not be set, but if they are, we want to know */
+                  , (!sr->this.modecfg_server && !sr->this.modecfg_client) ? "none" :
+                    (sr->this.modecfg_server && sr->this.modecfg_client) ? "both??" :
+                    (sr->this.modecfg_server) ? "server" : "client"
+                  , (!sr->that.modecfg_server && !sr->that.modecfg_client) ? "none" :
+                    (sr->that.modecfg_server && sr->that.modecfg_client) ? "both??" :
+                    (sr->that.modecfg_server) ? "server" : "client"
+                  , (c->policy & POLICY_MODECFG_PULL) ? "pull" : "push"
+                  , dns1
+                  , dns2
+                );
+# endif
+
     }
 #endif
 #ifdef HAVE_LABELED_IPSEC

@@ -154,6 +154,7 @@ help(void)
 	    " [--modecfgserver]"
 	    " [--modecfgclient]"
 	    " [--modecfgpull]"
+	    " [--addresspool]"
 #ifdef MODECFG_DNSWINS
 	    " [--modecfgdns1]"
 	    " [--modecfgdns2]"
@@ -478,6 +479,7 @@ enum option_enums {
     CD_TUNNELIPV6,
     CD_CONNIPV4,
     CD_CONNIPV6,
+    CD_ADDRESSPOOL,
 
     CD_IKELIFETIME,
     CD_IPSECLIFETIME,
@@ -689,6 +691,7 @@ static const struct option long_opts[] = {
     { "modecfgpull",   no_argument, NULL, CD_MODECFGPULL + OO },
     { "modecfgserver", no_argument, NULL, END_MODECFGSERVER + OO },
     { "modecfgclient", no_argument, NULL, END_MODECFGCLIENT + OO },
+    { "addresspool", required_argument, NULL, CD_ADDRESSPOOL + OO },
 #ifdef MODECFG_DNSWINS
     { "modecfgdns1", required_argument, NULL, CD_MODECFGDNS1 + OO },
     { "modecfgdns2", required_argument, NULL, CD_MODECFGDNS2 + OO },
@@ -1685,6 +1688,10 @@ main(int argc, char **argv)
 
 	case END_MODECFGSERVER:
 	    msg.right.modecfg_server = TRUE;
+	    continue;
+	case CD_ADDRESSPOOL:
+	    ttoiprange(optarg, 0, AF_INET, &msg.pool_range);
+	    //antony may be create kt_iprange
 	    continue;
 
 #ifdef MODECFG_DNSWINS
