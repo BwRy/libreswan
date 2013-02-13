@@ -1690,8 +1690,7 @@ main(int argc, char **argv)
 	    msg.right.modecfg_server = TRUE;
 	    continue;
 	case CD_ADDRESSPOOL:
-	    ttoiprange(optarg, 0, AF_INET, &msg.pool_range);
-	    //antony may be create kt_iprange
+	    ttorange(optarg, 0, AF_INET, &msg.pool_range);
 	    continue;
 
 #ifdef MODECFG_DNSWINS
