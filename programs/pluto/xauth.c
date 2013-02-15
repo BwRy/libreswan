@@ -752,7 +752,7 @@ stf_status modecfg_send_set(struct state *st)
 			, "ModeCfg set");
 
 	/* Transmit */
-	send_packet(st, "ModeCfg set", TRUE);
+	send_ike_msg(st, "ModeCfg set");
 
 	/* RETRANSMIT if Main, SA_REPLACE if Aggressive */
 	if(st->st_event->ev_type != EVENT_RETRANSMIT
@@ -867,7 +867,7 @@ stf_status xauth_send_request(struct state *st)
 
     /* Transmit */
 
-    send_packet(st, "XAUTH: req", TRUE);
+    send_ike_msg(st, "XAUTH: req");
 
     /* RETRANSMIT if Main, SA_REPLACE if Aggressive */
     if(st->st_event->ev_type != EVENT_RETRANSMIT)
@@ -993,7 +993,7 @@ stf_status modecfg_send_request(struct state *st)
 
     /* Transmit */
 
-    send_packet(st, "modecfg: req", TRUE);
+    send_ike_msg(st, "modecfg: req");
 
     /* RETRANSMIT if Main, SA_REPLACE if Aggressive */
     if(st->st_event->ev_type != EVENT_RETRANSMIT)
@@ -1105,7 +1105,7 @@ stf_status xauth_send_status(struct state *st, int status)
 
     /* Transmit */
 
-    send_packet(st, "XAUTH: status", TRUE);
+    send_ike_msg(st, "XAUTH: status");
 
     if (status)
 	change_state(st, STATE_XAUTH_R1);

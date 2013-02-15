@@ -6,6 +6,8 @@
  * Copyright (C) 2008-2010 Paul Wouters <paul@xelerance.com>
  * Copyright (C) 2008 Hiren Joshi <joshihirenn@gmail.com>
  * Copyright (C) 2009 Anthony Tong <atong@TrustedCS.com>
+ * Copyright (C) 2012-2013 Paul Wouters <pwouters@redhat.com>
+ * Copyright (C) 2013 Wolfgang Nothdurft <wolfgang@linogate.de>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -1364,7 +1366,6 @@ process_v1_packet(struct msg_digest **mdp)
 		struct ike_frag *ike_frag, **i;
 		int last_frag_index = 0;  /* index of the last fragment */
 		pb_stream frag_pbs;
- 		libreswan_log("handle IKE fragmentation");
 
 		if (st == NULL)
 		{
@@ -1374,10 +1375,22 @@ process_v1_packet(struct msg_digest **mdp)
 
 		if (!in_struct(&fraghdr, &isakmp_ikefrag_desc, &md->message_pbs, &frag_pbs)
 		||  pbs_room(&frag_pbs) != fraghdr.isafrag_length || fraghdr.isafrag_np != 0
-		||  fraghdr.isafrag_index == 0 || fraghdr.isafrag_index > 16)
+		||  fraghdr.isafrag_number == 0 || fraghdr.isafrag_number > 16)
 		{
 			SEND_NOTIFICATION(PAYLOAD_MALFORMED);
 			return;
+		}
+
+		DBG(DBG_CONTROL, DBG_log("received IKE fragment id '%d', number '%u'%s"
+		    , fraghdr.isafrag_id
+		    , fraghdr.isafrag_number
+		    , (fraghdr.isafrag_flags == 1) ? "(last)" : ""));
+
+		/* optimize: if receiving fragments, immediately respond with fragments too */
+		if(st->st_connection->policy & POLICY_IKE_FRAG_ALLOW) {
+			st->st_connection->policy |= POLICY_IKE_FRAG_FORCE;
+			st->st_seen_fragvid = TRUE;
+			DBG(DBG_CONTROL, DBG_log(" updated IKE policy to respond using fragments immediately"));
 		}
 
 		ike_frag = alloc_thing(struct ike_frag, "ike_frag");
@@ -1385,17 +1398,22 @@ process_v1_packet(struct msg_digest **mdp)
 			return;
 
 		ike_frag->md = md;
-		ike_frag->index = fraghdr.isafrag_index;
+		ike_frag->index = fraghdr.isafrag_number;
 		ike_frag->last = (fraghdr.isafrag_flags & 1);
 		ike_frag->size = pbs_left(&frag_pbs);
 		ike_frag->data = frag_pbs.cur;
 
+#if 0 
+/* is this ever hit? It was wrongly checking one byte instead of 4 bytes of marker */
 		/* Strip non-ESP marker from first fragment */
-		if (md->iface->ike_float == TRUE && ike_frag->index == 1 && ike_frag->data[0] == 0)
+		if (md->iface->ike_float && ike_frag->index == 1
+		    && (ike_frag->size >= NON_ESP_MARKER_SIZE
+			&& memcmp(non_ESP_marker, ike_frag->data, NON_ESP_MARKER_SIZE) == 0))
 		{
-			ike_frag->data += 1;
-			ike_frag->size -= 1;
+			ike_frag->data += NON_ESP_MARKER_SIZE;
+			ike_frag->size -= NON_ESP_MARKER_SIZE;
 		}
+#endif
 
 		/* Add the fragment to the state */
 		i = &st->ike_frags;
@@ -1546,7 +1564,7 @@ process_v1_packet(struct msg_digest **mdp)
 		loglog(RC_RETRANSMISSION
 		    , "retransmitting in response to duplicate packet; already %s"
 		    , enum_name(&state_names, st->st_state));
-		send_packet(st, "retransmit in response to duplicate", TRUE);
+		resend_ike_v1_msg(st, "retransmit in response to duplicate");
 	    }
 	    else
 	    {
@@ -2101,6 +2119,11 @@ complete_v1_state_transition(struct msg_digest **mdp, stf_status result)
     TCLCALLOUT("adjustFailure", st, (st ? st->st_connection : NULL), md);
     result = md->result;
 
+    /* If state has FRAGMENTATION support, import it */
+    if( st && md->fragvid) {
+	DBG(DBG_CONTROLMORE, DBG_log("peer supports fragmentation"));
+	st->st_seen_fragvid = TRUE;
+    }
     /* If state has DPD support, import it */
     if( st && md->dpd && st->hidden_variables.st_dpd != md->dpd) {
 	DBG(DBG_DPD, DBG_log("peer supports dpd"));
@@ -2227,11 +2250,11 @@ complete_v1_state_transition(struct msg_digest **mdp, stf_status result)
 		/* actually send the packet
 		 * Note: this is a great place to implement "impairments"
 		 * for testing purposes.  Suppress or duplicate the
-		 * send_packet call depending on st->st_state.
+		 * send_ike_msg call depending on st->st_state.
 		 */
 
 		TCLCALLOUT("avoidEmitting", st, st->st_connection, md);
-		send_packet(st, enum_name(&state_names, from_state), TRUE);
+		send_ike_msg(st, enum_name(&state_names, from_state));
 	    }
 
 	    TCLCALLOUT("adjustTimers", st, st->st_connection, md);
